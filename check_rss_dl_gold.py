@@ -24,7 +24,9 @@ url_rss = url_base + '/rssdl.php?passkey=' + my_passkey
 
 f_rss_prev_hex = my_script_dir +'/'+'rss_prev_ver.txt'
 f_torrent_url_history = my_script_dir +'/'+'used_url_history.txt'
-f_rss_last_check = my_script_dir +'/'+'rss_last_check.'
+f_rss_last_check = my_script_dir +'/'+'rss_last_check.log'
+is_missing_rss_hex = bool(True)
+
 #check RSS that there are any changes
 rss_resp = requests.get(url_rss)
 
@@ -38,8 +40,14 @@ url_login_payload = {
 def is_rss_updated():
     # Function to check to detect if rss page has been changed
 	ret_val = bool(False)
-	with open(f_rss_prev_hex, 'r') as file:
-		rss_old_hex = file.read()
+	try:
+		with open(f_rss_prev_hex, 'r') as file:
+			rss_old_hex = file.read()
+			is_missing_rss_hex = bool(False)
+	except FileNotFoundError:
+		rss_old_hex = '0'
+		with open(f_torrent_url_history, 'a') as file:
+			file.write('')
 
 	rss_new_hex = hashlib.sha224(rss_resp.text.encode("utf-8")).hexdigest()
 	#print (rss_old_hex)
@@ -51,13 +59,13 @@ def is_rss_updated():
             		file.write(rss_new_hex)
 	return ret_val
 
-def get_fano_gold_torrents():
+def get_download_files(in_skip_dl):
 	# Use 'with' to ensure the session context is closed after use.
 	with requests.Session() as s:
-		p = s.post(url_login, data=url_login_payload, verify=False)
+		p = s.post(url_login, data=url_login_payload ) # , verify=False
 		# print the html returned or something more intelligent to see if it's a successful login page.
 		#print (p.text.encode("utf-8"))
-		bs = BeautifulSoup(p.text.encode("utf-8"))
+		bs = BeautifulSoup(p.text.encode("utf-8"), 'html.parser')
 		#htmltable = bs.find('table', { 'class' : 'torrenttable' })
 		#htmltablerows = htmltable.find_all('tr', {'class': ''})
 
@@ -70,19 +78,24 @@ def get_fano_gold_torrents():
 	#getting value
 	for i in find_all_id:
 		if i.get('href') not in dl_lines:
-			print('DOWNLOADING: '+i.get('href'))
-			#print('URL: '+ url_base + '/' + i.get('href') +'&passkey=' + my_passkey)
-			wget_response = wget.download(url_base + '/' + i.get('href') +'&passkey=' + my_passkey, out = f_torrent_dl)
-			#print('wget')
+			if( in_skip_dl ):
+				print('SKIPPED DOWNLOADING: '+i.get('href'))
+			else:
+				print('DOWNLOADING: '+i.get('href'))
+				#print('URL: '+ url_base + '/' + i.get('href') +'&passkey=' + my_passkey)
+				wget_response = wget.download(url_base + '/' + i.get('href') +'&passkey=' + my_passkey, out = f_torrent_dl)
 			with open(f_torrent_url_history, 'a') as file:
 				file.write(i.get('href')+'\n')
 
+###=======================
+###  MAIN Code
+###=======================
 print("RSS checked: ", datetime.datetime.now())
 with open(f_rss_last_check, 'w') as file:
-	file.write('RSS checked: '+ str(ct) + '\n')
+	file.write('RSS checked: '+ str(datetime.datetime.now()) + '\n')
 
 if is_rss_updated():
 	print('is_rss_updated() = True')
-	get_fano_gold_torrents()
+	get_download_files(is_missing_rss_hex)
 else:
 	print('is_rss_updated() = False')
