@@ -39,6 +39,7 @@ url_login_payload = {
 
 def is_rss_updated():
     # Function to check to detect if rss page has been changed
+	global is_missing_rss_hex
 	ret_val = bool(False)
 	try:
 		with open(f_rss_prev_hex, 'r') as file:
@@ -97,5 +98,6 @@ with open(f_rss_last_check, 'w') as file:
 if is_rss_updated():
 	print('is_rss_updated() = True')
 	get_download_files(is_missing_rss_hex)
+	
 else:
 	print('is_rss_updated() = False')
